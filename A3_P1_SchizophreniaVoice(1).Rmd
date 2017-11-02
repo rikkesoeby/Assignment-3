@@ -1,0 +1,273 @@
+---
+title: "Assignment2_Part1_VoiceInSchizophrenia"
+author: "Riccardo Fusaroli"
+date: "July 17, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(pastecs)
+library(Metrics)
+library(tseriesChaos)
+library(SparseM)
+library(crqa)
+library(ggplot2)
+library(tidyverse)
+library(stringr)
+library(readr)
+library(lme4)
+library(MuMIn)
+library(lmerTest)
+
+#0 is control, 1 is schitzo
+
+```
+
+## Assignment 2 - Part 1 - Assessing voice in schizophrenia
+
+Schizophrenia has been associated with "inappropriate" voice, sometimes monotone, sometimes croaky. A few studies indicate that pitch might be an index of schizophrenia. However, an ongoing meta-analysis of the literature (which you will have a go at in the last assignment) indicates that pitch mean and standard deviation are only weak indicators of diagnosis. Can we do better with our new fancy complex skills?
+
+The corpus you are asked to analyse is a set of voice recordings from people with schizophrenia (just after first diagnosis) and 1-1 matched controls (on gender, age, education). Each participant watched 10 videos of triangles moving across the screen and had to describe them (so you have circa 10 recordings per person). I have already extracted the pitch once every 10 milliseconds and you will have to use this data to assess differences in the voice.
+
+N.B. Question to be answered via email to Celine: can you characterize voice in schizophrenia as acoustically different? Report the methods you used to answer this question and the results from the analyses. Add a couple of lines trying to interpret the results (make sense of the difference). E.g. People with schizophrenia tend to have high-pitched voice, and present bigger swings in their prosody than controls. Add a couple of lines describing limitations of the data/analyses if any is relevant.
+
+N.B. There are looots of files to be dealt with. Probably too many for your computer. This is a challenge for you. Some (complementary) possible strategies: You can select a subset of files only (and you have to justify your choice). You can learn how to use the apply() or map() functions. You can coordinate with classmates.
+
+1. In the course of this assignment you have to first select one datafile and figure out how to:
+
+- Extract "standard" descriptors of pitch: Mean, standard deviation, range
+- Extract less "standard" descriptors of pitch you can think of (e.g. median, iqr, mean absoluted deviation, coefficient of variation)
+- Extract "complex" descriptors: recurrence quantification analysis
+
+```{r}
+demodata = read.delim("DemoData.txt")
+artidata= read.delim("Articulation.txt", sep= ",")
+pdata = read.delim("Study1D0S103T2_f0.txt")
+
+#mean, SD, range, median, coefficient of variation
+stat.desc(pdata$f0)
+#the range when 25% highest and lowest
+IQR(pdata$f0)
+#the pitch can range 59 from the mean
+
+# mean absoluted deviation
+Metrics::rmse(pdata, pdata$f0)
+
+
+#recurrence quantification analysis
+
+par = list(lgM =  50, steps = seq(1, 6, 1),  radiusspan = 100,  radiussample = 40, normalize = 0,  rescale = 0,  mindiagline = 2,  minvertline = 2,  tw = 0,  whiteline = FALSE,  recpt = FALSE,  fnnpercent = 10,  typeami = "mindip")
+
+ans = optimizeParam(pdata$f0, pdata$f0, par, min.rec = 3.5, max.rec = 4.5)
+
+Results=crqa(pdata$f0,pdata$f0, delay=ans$delay, embed=ans$emddim, radius=ans$radius,normalize=0,rescale=0,mindiagline = 2,minvertline = 2)
+Results
+
+#plot
+RP=Results$RP
+RP = matrix(as.numeric(RP), nrow = ncol(RP)) 
+cols = c("white","blue4")
+image(RP, xlab = "", ylab = "", col = cols)
+
+
+Profile=drpdfromts(pdata$f0, pdata$f0,datatype = 'continuous',ws=50,radius=ans$radius)
+timecourse = round( seq(-5000,5000,100)/1000, digit = 1)
+maxlag = Profile$maxlag/1000
+profile = Profile$profile*100
+Prof=data.frame(profile)
+ggplot(Prof, aes(timecourse,profile))+geom_line()+ geom_vline(xintercept = timecourse[maxlag], colour='red')
+
+ggplot(a)
+
+ggplot(final_df, aes(mean,diagnosis)) + geom_point()
+
+```
+
+IQR = 16.65
+Mean = 211.7
+range = 132.5
+sd = 15.7
+median =208
+mean absolue deviation = 146.3
+coefficient of variation = 0.07
+
+
+
+2. Second you will have to turn the code into a function and loop through all the files (or even better use apply/sapply/lapply)
+- Remember to extract the relevant information from the file names (Participant, Diagnosis, Trial, Study)
+
+```{r}
+
+#create a list
+#loop through the list
+
+
+#loading the files
+temp = list.files(pattern="*f0.txt")
+myfiles = lapply(temp, read.delim)
+
+#empty varaibles that can be filled
+SUBJ <- NULL
+study <-  NULL
+trial <-  NULL
+diagnosis <-  NULL
+PR = NULL
+DET <- NULL
+NRLINE <- NULL
+maxL <- NULL
+L <- NULL
+ENTR <- NULL
+LAM <- NULL
+TT <- NULL
+mean <- NULL
+sd <- NULL
+range <- NULL
+median <- NULL
+IQR = NULL
+mad = NULL
+coef_var = NULL
+delay = NULL
+embed = NULL
+radius = NULL
+
+# start from one
+n = 1
+
+#file = readr::read_delim(i, delim = "\t")
+
+for (i in temp){
+  print(i)
+  df = readr::read_delim(i, delim = "\t")
+  df = df$f0
+  #with ID = str_extract(i,"S+\\d+") regular expressions 
+  #participant[n]= str_extract(ID, "\\d+")
+  study[n] = substr(i, start = 6, stop = 6)
+  diagnosis[n]= substr(i, start = 8, stop = 8)
+  SUBJ[n]= substr(i, start = 10, stop = 12)
+  trial[n]=substr(i, start = 14, stop = 14)
+  mean[n] <- mean(df, na.rm = T)
+  sd[n] <- sd(df, na.rm =T)
+  range[n] <- range(df, na.rm = T)[2]-range(df, na.rm = T)[1]
+  median[n] <- median(df,na.rm = T)
+  IQR[n] <- IQR(df, na.rm = T)
+  mad[n] <- mad(df,center = mean(df), na.rm = T)
+  coef_var[n] <- sd(df)/mean(df)*100
+  
+  par = list(lgM =  15, steps = seq(1, 6, 1),  radiusspan = 100, radiussample = 40, normalize = 0,  rescale = 0,  mindiagline = 2,  minvertline = 2,  tw = 0,  whiteline = FALSE,  recpt = FALSE,  fnnpercent = 10,  typeami = "mindip")
+  #widen the range of the recurrence (3-5 instead)
+  ans = try(optimizeParam(df, df, par, min.rec = 3, max.rec = 5))
+  #if the length of values calculated from ans is less than 2, then write NA
+  if(length(ans) < 2) {
+    delay[n] = NA
+    embed[n] = NA
+    radius[n] = NA
+  }
+  # If greater than 2 use the calculated values
+  else {
+    delay[n]=ans$delay
+    embed[n]=ans$emddim
+    radius[n]=ans$radius
+  }
+  #making sure that the next is saved in the new row
+  n=n+1
+}
+
+#dataframe with all values from fisrt loop
+Data = data.frame(SUBJ, study, trial, diagnosis,  mean, sd, range, median, mad, IQR, coef_var, delay, embed, radius)
+
+
+delaym= round(median(delay, na.rm=T) - sd(delay, na.rm = T))
+embedm= round(median(embed, na.rm=T) - sd(embed, na.rm = T))
+radiusm=round(median(radius, na.rm=T))
+#We chose to use a median delay and embedding to maximize the comparability between trials
+
+
+
+
+#radius is 3, rather than the mean radius at 14, because some of the recurrence percentages was to high. The optimal is a recurrence percentage at approx 5-10%
+n = 1
+for (i in temp){
+  df = readr::read_delim(i, delim = "\t")
+  df = df$f0
+  print(i)
+  # the crqa with the calculated delay and embed, and a radius of 3 to get the optimal recurrence percentage at approx 5-10%
+  results = try(crqa(df,df, delay=delaym, embed=embedm, radius=3,normalize=0,rescale=0,mindiagline = 2,minvertline = 2))
+  #if the length of values calculated from results is greater than 1, then use the calculated values
+  if (length(results) > 1) {
+    PR[n] <- results$RR
+    DET[n] <- results$DET
+    maxL[n] <- results$maxL
+    L[n] <- results$L
+    ENTR[n] <- results$ENTR
+    LAM[n] <- results$LAM
+    TT[n] <- results$TT
+  }
+  n= n+1
+}
+
+#final dataframe
+final_df = data.frame(SUBJ, study, trial, diagnosis, PR, DET, maxL, L, ENTR, LAM, TT, mean, sd, range, median, delay, embed, radius)
+
+# making trial and diggnosis numeric 
+final_df$trial = as.numeric(final_df$trial)
+final_df$diagnosis = as.numeric(final_df$diagnosis)
+
+#saving a csv-file
+write.csv(final_df, file = "final_data.csv")
+
+
+```
+
+
+3. Make one model per acoustic feature and test whether you can observe significant difference due to Diagnosis. 
+Tip: Which other fixed factors should you control for (that is, include in the model)? Which random ones?
+- Bonus points: cross-validate the model and report the betas and standard errors from all rounds to get an idea of how robust the estimates are. 
+3a. Is study a significant predictor in these models? What should you infer from this? Does study interact with diagnosis? What should you infer from this?
+
+```{r}
+
+#lmer 
+lmer(range ~ D + trial + (1+diagnosis|ID) +(1+trial|ID))
+#pitch recurrence
+
+model1 = lmer(PR~ 1 + diagnosis+ trial+ mean + L + (1+diagnosis+trial|SUBJ) ,REML = FALSE, final_df)
+summary(model1)
+
+model2 = lmer(range~ 1 + diagnosis + trial + L + (1+diagnosis+trial|SUBJ) ,REML = FALSE, final_df)
+summary(model2)
+
+
+#best model
+model3 = lmer(mean~ 1 + diagnosis + trial +(1+diagnosis+trial|SUBJ) ,REML = FALSE, final_df)
+summary(model3)
+
+#We expect that people with the diagnosis have a higher pitch, therefore the mean of the pitch range would also be higher.
+#participants with schitzophrenia have significantly higher mean pitch that of controls participants
+
+
+# The model shows that people with schitzophrenia have a higher mean pitch than controls (b =21.6, se =6.7 t = 3,2, p < 0.05)
+#IQR is the same data -> just without the 25% top and bottom values
+
+
+
+```
+
+
+
+4. Bonus Question: Compare effect size of diagnosis across the different measures. Which measure seems most sensitive?
+- Tip: to compare across measures you need to put all of them on the same scale, that is, you need to "standardize" them (z-score)
+
+5. Bonus question. In the Clinical Info file you have additional information about the participants. Which additional parameters (e.g. age, gender) should we control for? Report the effects.
+
+6. Write a paragraph reporting methods and results
+
+We expect that people with the diagnosis have a higher pitch, therefore the mean pitch would also be higher.
+The model 3 shows that participants  with schitzophrenia in fact do have a higher mean pitch than controls (b =21.6, se =6.7 t = 3,2, p < 0.05) The model indicates that diagnosis is a good predictor of pitch and that pitch therefore seems to be acoustically different for schitzophrenia
+Some limitations of this analysis are that we only used participants from one study, which could bias the results.
+Another limitation is that all the variables are extracted from the voices of the participants, which could make them correlated. If we had included other variables, such as gender or age, we could have gotten a different outcome.
+
+[Next assignment: can we use these measures to build a tool that diagnoses people from voice only?]
+
+## N.B. Remember to save the acoustic features of voice in a separate file, so to be able to load them next time
