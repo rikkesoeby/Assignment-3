@@ -174,7 +174,7 @@ for (i in temp){
   n=n+1
 }
 
-#dataframe with all values from fisrt loop
+#dataframe with all values from first loop
 Data = data.frame(SUBJ, study, trial, diagnosis,  mean, sd, range, median, mad, IQR, coef_var, delay, embed, radius)
 
 
@@ -230,10 +230,11 @@ Tip: Which other fixed factors should you control for (that is, include in the m
 
 #lmer 
 lmer(range ~ D + trial + (1+diagnosis|ID) +(1+trial|ID))
-#pitch recurrence
 
+#pitch recurrence
 model1 = lmer(PR~ 1 + diagnosis+ trial+ mean + L + (1+diagnosis+trial|SUBJ) ,REML = FALSE, final_df)
 summary(model1)
+
 
 model2 = lmer(range~ 1 + diagnosis + trial + L + (1+diagnosis+trial|SUBJ) ,REML = FALSE, final_df)
 summary(model2)

@@ -8,7 +8,6 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
-
 library(pastecs)
 library(Metrics)
 library(tseriesChaos)
@@ -32,10 +31,7 @@ data = read.csv("final_rqa.csv")
 In the previous part of the assignment you generated a bunch of "features", that is, of quantitative descriptors of voice in schizophrenia, focusing on pitch.
 In the course of this assignment we will use them to try to automatically diagnose schizophrenia from voice only, that is, relying on the set of features you produced last time, we will try to produce an automated classifier.
 
-### Question 1
-
-
-
+### Question 1: Can you diagnose schizophrenia from pitch range only? If so, how well?
 
 Build a logistic regression to see whether you can diagnose schizophrenia from pitch range only.
 ```{r}
@@ -45,16 +41,17 @@ data$diagnosis[which(data$diagnosis=="1")] <- "0"
 data$diagnosis[which(data$diagnosis=="2")] <- "1"
 
 data$diagnosis = as.factor(data$diagnosis)
-model1 <- lme4::glmer(diagnosis ~ range*trial + (1+ trial|participant) + (1|study), data = data, family = "binomial")
+model1 <- lme4::glmer(diagnosis ~ range + (1+ trial|participant) + (1|study), data = data, family = "binomial")
 summary(model1)
+model2 = lme4::glmer(diagnosis ~ range*trial + (1+ trial|participant) + (1|study), data = data, family = "binomial")
+summary(model2)
 
 
 ```
-
 Calculate the different performance measures (accuracy, sensitivity, specificity, PPV, NPV, ROC curve) on a logistic regression using the full dataset. Don't forget the random effects!
 ```{r}
 data$PredictionsPerc=predict(model1)
-data$Predictions[data$PredictionsPerc>0.005]="0"
+data$Predictions[data$PredictionsPerc>0]="0"
 data$Predictions[data$PredictionsPerc<=0.005]="1"
 confusionMatrix(data = data$Predictions, reference = data$diagnosis, positive = "1") 
 
@@ -66,7 +63,6 @@ plot(rocCurve, legacy.axes = TRUE)
 
 ```
 Then cross-validate the logistic regression and re-calculate performance on the testing folds. N.B. The cross-validation functions you already have should be tweaked: you need to calculate these new performance measures.
-
 ```{r}
 
 data$Predictions = as.factor(data$Predictions)
@@ -99,8 +95,8 @@ for(i in flds){
   #train the model (the function you should have made)
   trainmodel = lme4::glmer(diagnosis ~ range*trial + (1+ trial|participant) + (1|study), data = trainsub, family = "binomial")
   trainsub$PredictionsPerc=predict(trainmodel)
-  trainsub$Predictions[trainsub$PredictionsPerc>0.005]="0"
-  trainsub$Predictions[trainsub$PredictionsPerc<=0.005]="1"
+  trainsub$Predictions[trainsub$PredictionsPerc>0.]="0"
+  trainsub$Predictions[trainsub$PredictionsPerc<=0.5]="1"
   confusionMatrix(data = trainsub$Predictions, reference = trainsub$diagnosis, positive = "1") 
   trainsub$Predictions = as.factor(trainsub$Predictions)
   sensitivity[n] = sensitivity(data = trainsub$Predictions, reference = trainsub$diagnosis, positive = "1") 
@@ -119,32 +115,23 @@ for(i in flds){
 
 ```
 
-
-
-
-N.B. the predict() function generates probabilities (the full scale between 0 and 1). A probability > .5 indicates a choice of 1, below a choice of 0.
+N.B. the predict() function generates log odds (the full scale between minus and plus infinity). Log odds > 0 indicates a choice of 1, below a choice of 0.
 N.B. you need to decide whether calculate performance on each single test fold or save all the prediction for test folds in one datase, so to calculate overall performance.
 N.B. Now you have two levels of structure: subject and study. Should this impact your cross-validation?
 
+### Question 2 - Which single acoustic predictor is the best predictor of diagnosis?
 
-### Question 2
-
-Which single predictor is the best predictor of diagnosis?
-
-### Question 3
+### Question 3 - Which combination of acoustic predictors is best for diagnosing schizophrenia?
 
 Now it's time to go wild! Use all (voice-related) variables and interactions you can think of. Compare models and select the best performing model you can find.
 
 Remember:
-- Cross-validation or AIC are crucial to build the best model!
-- After choosing the model, train it on all the data you have
-- Save the model: save(modelName, file = "BestModelForever.rda")
-- Create a Markdown that can: a) extract the features from new pitch files (basically your previous markdown), b) load your model (e.g. load("BestModelForever.rda")), and c) predict the diagnosis in the new dataframe.
-Send it to Celine and Riccardo by Monday (so they'll have time to run it before class)-
+- Out-of-sample error crucial to build the best model!
+- After choosing the model, send Celine and Riccardo the code of your model
 
-### Question 4: Report the results
+### Question 4: Properly report the results
 
-METHODS SECTION: how did you analyse the data?
+METHODS SECTION: how did you analyse the data? That is, how did you extract the data, designed the models and compared their performance?
 
 RESULTS SECTION: can you diagnose schizophrenia based on voice? which features are used? Comment on the difference between the different performance measures.
 
